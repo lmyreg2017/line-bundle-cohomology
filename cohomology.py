@@ -6,12 +6,14 @@
 
 from subprocess import Popen, PIPE
 import os
+import tempfile
+import numpy as np
 
 def choose_k_in_s(k, s):
     if k == 0:
         yield []
         return
-
+    
     for i in xrange(0,len(s)-(k-1)):
         for combination in choose_k_in_s(k-1, s[i+1:]):
             yield [s[i]]+combination
@@ -23,26 +25,30 @@ def compute_box(rays, divisor):
     boxsize = [(0,0)]*dim
 	
     for ray_system in choose_k_in_s(dim, zip(rays, divisor)):
-        rays = matrix(CC, [item[0] for item in ray_system])
-        a = matrix(ZZ, [-item[1] for item in ray_system])
-        
+        rays = np.array( [ item[0] for item in ray_system ] )
+        a = np.array( [ -item[1] for item in ray_system ] )
+        #rays = matrix(CC, [item[0] for item in ray_system])
+        #a = matrix(ZZ, [-item[1] for item in ray_system])
+        print( rays )
         try:
-            m = rays.inverse()
-        except ZeroDivisionError:
+            m = np.linalg.inv( rays )
+        except:
+        #except ZeroDivisionError:
             # No solution, just try the next collection
             continue
 
         solution = m * a.transpose()
 
         for i in range(dim):
-            m_i = int(RR(real(solution[i][0])))
+            #m_i = int(RR(real(solution[i][0])))
+            m_i = int(solution[i][0])
             min_m, max_m = boxsize[i]
             min_m = min(min_m, m_i)
             max_m = max(max_m, m_i)
             boxsize[i] = (min_m, max_m)
 		
     for i in range(dim):
-	boxsize[i] = (boxsize[i][0]-1,boxsize[i][1]+1)
+        boxsize[i] = (boxsize[i][0]-1,boxsize[i][1]+1)
 
     return boxsize
 
@@ -62,8 +68,10 @@ def compute_kth_cohomology(rays, cones, divisor, k):
         return sum([i*j for i,j in zip(a,b)])
 
     # Pass the relevant information to the C code
-    fname = tmp_filename()
-    fd = open(fname, "wb")
+    fname = open("demofile.txt", "w")
+    #fname = tempfile.TemporaryFile()
+    fd = fname
+    #fd = open(fname, "wb")
     box = compute_box(rays, divisor)
     
     # Definition of the box.
@@ -93,6 +101,8 @@ def compute_kth_cohomology(rays, cones, divisor, k):
     
     fd.close()
 
+    print( str( k ) )
+    print( fname )
     cech = Popen(['cech_cohomology', fname, str(k)], stdout=PIPE)
     
     output, errors = cech.communicate()
@@ -178,14 +188,14 @@ D=add(NstarBase,NstarFiber)
 D1=add(NstarDiv,NstarFiber)
 D2=add(NstarBase,NstarDiv)
 
-print D
-print D1
-print D2
+print( D )
+print( D1 )
+print( D2 )
 
 ## The third cohomology is the slowest to compute. The following code
 ## takes a while to finish.
-print compute_kth_cohomology(rays,cones,D,3)
+print( compute_kth_cohomology(rays,cones,D,3) )
 
-print compute_kth_cohomology(rays,cones,D1,3)
+print( compute_kth_cohomology(rays,cones,D1,3) )
 
-print compute_kth_cohomology(rays,cones,D2,3)
+print( compute_kth_cohomology(rays,cones,D2,3) )
